@@ -42,7 +42,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  flutter_map_utils: ^0.1.1
+  flutter_map_utils: ^0.2.0
 ```
 
 Then run:
@@ -52,6 +52,8 @@ flutter pub get
 ```
 
 > **Note:** This package depends on `flutter_map ^8.0.0` and `latlong2 ^0.9.1`. Both are pulled in automatically.
+>
+> This package re-exports everything from [`map_utils_core`](https://pub.dev/packages/map_utils_core) — you don't need to add it separately. A [`google_map_utils`](https://pub.dev/packages/google_map_utils) package is also available for Google Maps.
 
 ---
 
@@ -255,6 +257,8 @@ print(state.undoRedo.canRedo); // false
 | `GeometryUtils` | `pointInPolygon`, `centroid`, `polygonArea`, `polylineLength`, `boundingBox`, `isSelfIntersecting`, and more |
 | `GeoJsonUtils` | `toGeoJson`, `fromGeoJson`, `toGeoJsonString`, `fromGeoJsonString` |
 | `SnappingEngine` | Priority-based snapping with vertex, midpoint, edge, intersection, grid, perpendicular modes |
+| `SelectionUtils` | Hit-testing: `findClosestShape()`, `distanceToShape()`, `nearestEdgeDistance()` |
+| `ShapeStylePresets` | Ready-to-use styles: `zone`, `warning`, `route`, `selected`, `hover`, `defaultWithStates` |
 
 ### UI Widgets
 
@@ -312,9 +316,9 @@ flutter run
 
 ## About
 
-Built and maintained by **[UBXTY Unboxing Technology](https://ubxty.com/)** — the same team behind [`flutter_map_tile_caching_plus`](https://pub.dev/packages/flutter_map_tile_caching_plus).
+Built and maintained by **[UBXTY Unboxing Technology](https://ubxty.com/)**.
 
-This is a standalone addon utility. It does **not** replace or fork `flutter_map` — it extends it.
+Part of the [`flutter_map_utils`](https://github.com/ubxty/flutter_map_utils) monorepo which also includes [`map_utils_core`](https://pub.dev/packages/map_utils_core) and [`google_map_utils`](https://pub.dev/packages/google_map_utils).
 
 ---
 

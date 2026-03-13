@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0
+
+- **Monorepo restructure**: Now part of the `map_utils` monorepo alongside `map_utils_core` and `google_map_utils`
+- **DRY refactor**: `DrawingToolbar` and `ShapeInfoPanel` moved to `map_utils_core` (re-exported for backward compatibility)
+- All core algorithms, models, and state management extracted to `map_utils_core`
+- Melos 7 workspace management
+- Updated to Dart 3.6.0+ / Flutter 3.27.0+
+
 ## 0.1.1
 
 - Initial public release
@@ -15,7 +23,3 @@
 - **UI widgets**: DrawingToolbar, ShapeInfoPanel, CoordinateDisplay, FlutterMapGeometryEditor (all-in-one wrapper)
 - **Shape styles**: fill, stroke, opacity, selected/hover states, presets, JSON serialization
 - **Cross-platform**: Android, iOS, Linux, macOS, Web, Windows
-- GeoJSON import/export
-- Measurement tool
-- Pre-built UI widgets
-- FlutterMapGeometryEditor all-in-one wrapper

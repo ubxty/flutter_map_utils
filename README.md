@@ -8,6 +8,18 @@ A **monorepo** providing drawing, editing & measurement tools for Flutter maps.
 | [`flutter_map_utils`](packages/flutter_map_utils/) | Widgets & layers for [flutter_map](https://pub.dev/packages/flutter_map) | [![pub](https://img.shields.io/pub/v/flutter_map_utils.svg)](https://pub.dev/packages/flutter_map_utils) |
 | [`google_map_utils`](packages/google_map_utils/) | Widgets & overlays for [google_maps_flutter](https://pub.dev/packages/google_maps_flutter) | [![pub](https://img.shields.io/pub/v/google_map_utils.svg)](https://pub.dev/packages/google_map_utils) |
 
+## Features
+
+- **Drawing** — Polygon, polyline, rectangle, circle, freehand
+- **Editing** — Drag vertices, insert midpoints, delete vertices, drag whole shapes
+- **Holes** — Cut holes inside polygons
+- **Snapping** — Vertex, midpoint, edge, intersection, grid, perpendicular
+- **Measurement** — Distance & area with metric/imperial labels
+- **Undo / Redo** — Full command-pattern history
+- **GeoJSON** — Import & export with round-trip fidelity
+- **Styles** — Fill, stroke, opacity, selected/hover states, presets, JSON serialization
+- **Shared state** — Same `DrawingState` works with both map engines
+
 ## Architecture
 
 ```
