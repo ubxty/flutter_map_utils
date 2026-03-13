@@ -1,0 +1,18 @@
+name: flutter_map_utils_example
+description: Showcase of every flutter_map_utils feature.
+publish_to: none
+
+environment:
+  sdk: ">=3.6.0 <4.0.0"
+  flutter: ">=3.27.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_map: ^8.0.0
+  flutter_map_utils:
+    path: ../
+  latlong2: ^0.9.1
+
+dev_dependencies:
+  flutter_lints: ">=5.0.0 <7.0.0"

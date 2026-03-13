@@ -1,0 +1,29 @@
+# Internal planning docs
+devplan.md
+implementation_plan.md
+
+# Dart/Flutter
+.dart_tool/
+.packages
+build/
+pubspec.lock
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# macOS
+.DS_Store
+
+# Generated
+*.g.dart
+
+# Coverage
+coverage/
+
+# Temp
+temp/
+.cred
+.env
+.flutter-plugins-dependencies

@@ -1,0 +1,24 @@
+# Dart/Flutter
+.dart_tool/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+pubspec_overrides.yaml
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Melos
+.melos/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Internal planning docs
+devplan.md
+implementation_plan.md
+google_maps.md

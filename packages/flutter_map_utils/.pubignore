@@ -1,0 +1,5 @@
+devplan.md
+implementation_plan.md
+build/
+.dart_tool/
+temp/
