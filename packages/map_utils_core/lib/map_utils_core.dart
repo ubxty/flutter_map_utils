@@ -23,3 +23,7 @@ export 'src/snapping/snapping_engine.dart';
 
 // Selection
 export 'src/selection/selection_utils.dart';
+
+// UI (shared across map providers)
+export 'src/ui/drawing_toolbar.dart';
+export 'src/ui/shape_info_panel.dart';

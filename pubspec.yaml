@@ -1,0 +1,45 @@
+name: map_utils_workspace
+publish_to: none
+
+environment:
+  sdk: ">=3.6.0 <4.0.0"
+
+workspace:
+  - packages/map_utils_core
+  - packages/flutter_map_utils
+  - packages/google_map_utils
+
+dev_dependencies:
+  melos: ^7.0.0
+
+melos:
+  name: map_utils
+  repository: https://github.com/ubxty/map_utils
+
+  command:
+    bootstrap:
+      usePubspecOverrides: true
+    version:
+      branch: main
+      linkToCommits: true
+
+  scripts:
+    analyze:
+      run: dart analyze --fatal-infos
+      exec:
+        concurrency: 3
+      packageFilters:
+        dirExists: lib
+
+    test:
+      run: flutter test
+      exec:
+        concurrency: 1
+        failFast: true
+      packageFilters:
+        dirExists: test
+
+    format:
+      run: dart format .
+      exec:
+        concurrency: 3

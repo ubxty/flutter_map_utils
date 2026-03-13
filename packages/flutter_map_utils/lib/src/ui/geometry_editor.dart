@@ -9,8 +9,7 @@ import 'package:flutter_map_utils/src/layers/drawing_layer.dart';
 import 'package:flutter_map_utils/src/measurement/measurement_tool.dart';
 import 'package:flutter_map_utils/src/selection/selection_layer.dart';
 import 'package:flutter_map_utils/src/ui/coordinate_display.dart';
-import 'package:flutter_map_utils/src/ui/drawing_toolbar.dart';
-import 'package:flutter_map_utils/src/ui/shape_info_panel.dart';
+
 
 /// All-in-one wrapper that layers drawing, editing, selection,
 /// measurement, toolbar, and info panel on a [FlutterMap].

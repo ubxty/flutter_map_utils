@@ -5,6 +5,7 @@
 .flutter-plugins-dependencies
 build/
 pubspec_overrides.yaml
+pubspec.lock
 
 # IDE
 .idea/
