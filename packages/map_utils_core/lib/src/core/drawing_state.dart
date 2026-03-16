@@ -103,6 +103,13 @@ class DrawingState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Set mode without cancelling in-progress drawing or notifying listeners.
+  /// Used internally for temporary mode switches (e.g. freehand → polyline
+  /// before finishDrawing for open lines).
+  void setModeQuiet(DrawingMode mode) {
+    _activeMode = mode;
+  }
+
   // -- Drawing lifecycle --
 
   /// Add a point during drawing.

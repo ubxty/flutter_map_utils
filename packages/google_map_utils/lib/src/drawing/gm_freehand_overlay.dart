@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart';
@@ -55,7 +56,7 @@ class GmFreehandOverlay extends StatefulWidget {
     required this.controller,
     this.previewStyle,
     this.closeAsPolygon = true,
-    this.simplificationTolerance = 12.0,
+    this.simplificationTolerance = 20.0,
     this.minPoints = 4,
     this.smoothingIterations = 2,
     this.onDrawingComplete,
@@ -69,6 +70,8 @@ class GmFreehandOverlay extends StatefulWidget {
 class _GmFreehandOverlayState extends State<GmFreehandOverlay> {
   bool _isDrawing = false;
   final List<Offset> _screenPoints = [];
+  final Set<int> _activePointers = {};
+  int? _drawingPointer;
 
   @override
   void initState() {
@@ -99,24 +102,34 @@ class _GmFreehandOverlayState extends State<GmFreehandOverlay> {
   }
 
   void _handlePointerDown(PointerDownEvent event) {
-    _isDrawing = true;
-    // Don't clear — continue from last point for multi-stroke
-    _screenPoints.add(event.localPosition);
-    widget.controller.drawingState.beginShapeDrag();
+    _activePointers.add(event.pointer);
+    if (_activePointers.length == 1) {
+      // Single finger — start drawing
+      _drawingPointer = event.pointer;
+      _isDrawing = true;
+      _screenPoints.add(event.localPosition);
+      widget.controller.drawingState.beginShapeDrag();
+    }
+    // Multi-touch: don't draw, let map handle zoom/pan
     setState(() {});
   }
 
   void _handlePointerMove(PointerMoveEvent event) {
-    if (!_isDrawing) return;
+    if (!_isDrawing || _activePointers.length > 1) return;
+    if (event.pointer != _drawingPointer) return;
     _screenPoints.add(event.localPosition);
     setState(() {});
   }
 
   Future<void> _handlePointerUp(PointerUpEvent event) async {
-    if (!_isDrawing) return;
-    _isDrawing = false;
-    widget.controller.drawingState.endShapeDrag();
-    // Don't finalize — wait for next stroke or explicit finalize
+    _activePointers.remove(event.pointer);
+    if (event.pointer == _drawingPointer) {
+      if (_isDrawing) {
+        _isDrawing = false;
+        widget.controller.drawingState.endShapeDrag();
+      }
+      _drawingPointer = null;
+    }
     setState(() {});
   }
 
@@ -146,17 +159,41 @@ class _GmFreehandOverlayState extends State<GmFreehandOverlay> {
 
     if (latLngPoints.length < widget.minPoints) return;
 
-    // Simplify
+    // Adaptive tolerance: use fraction of bounding box diagonal so
+    // small drawings (buildings) still simplify properly
+    final lats = latLngPoints.map((p) => p.latitude);
+    final lngs = latLngPoints.map((p) => p.longitude);
+    final latRange = lats.reduce(math.max) - lats.reduce(math.min);
+    final lngRange = lngs.reduce(math.max) - lngs.reduce(math.min);
+    final cosLat = math.cos(latLngPoints.first.latitude * math.pi / 180);
+    final diagMeters = math.sqrt(
+      math.pow(latRange * 111320, 2) +
+      math.pow(lngRange * 111320 * cosLat, 2),
+    );
+    // 3% of diagonal, clamped between 0.5m and configured max
+    final adaptiveTolerance = (diagMeters * 0.03).clamp(
+      0.5, widget.simplificationTolerance,
+    );
+
     var points = GeometryUtils.simplifyPath(
       latLngPoints,
-      tolerance: widget.simplificationTolerance,
+      tolerance: adaptiveTolerance,
     );
     if (points.length < widget.minPoints) {
       points = List.of(latLngPoints);
     }
 
-    // Smooth
-    if (widget.smoothingIterations > 0 && points.length >= 3) {
+    // If still too many, increase tolerance progressively
+    var tol = adaptiveTolerance;
+    while (points.length > 30 && tol < diagMeters * 0.5) {
+      tol *= 2;
+      points = GeometryUtils.simplifyPath(latLngPoints, tolerance: tol);
+    }
+
+    // Smooth only when few points
+    if (widget.smoothingIterations > 0 &&
+        points.length >= 3 &&
+        points.length <= 20) {
       points = GeometryUtils.smoothPath(
         points,
         iterations: widget.smoothingIterations,
@@ -164,11 +201,23 @@ class _GmFreehandOverlayState extends State<GmFreehandOverlay> {
       );
     }
 
-    // Push to drawing state and finish
+    // Push to drawing state and finish directly (not via controller
+    // to avoid its onDrawingComplete competing with the overlay's callback)
+    final state = controller.drawingState;
     for (final p in points) {
-      controller.drawingState.addDrawingPoint(p);
+      state.addDrawingPoint(p);
     }
-    controller.finishDrawing();
+    // For open polylines, temporarily switch mode so finishDrawing
+    // creates a DrawablePolyline (needs ≥2 pts) instead of
+    // DrawablePolygon (needs ≥3 pts).
+    final savedMode = state.activeMode;
+    if (!widget.closeAsPolygon) {
+      state.setModeQuiet(DrawingMode.polyline);
+    }
+    state.finishDrawing();
+    if (!widget.closeAsPolygon) {
+      state.setModeQuiet(savedMode);
+    }
     widget.onDrawingComplete?.call();
   }
 
@@ -184,7 +233,9 @@ class _GmFreehandOverlayState extends State<GmFreehandOverlay> {
         onPointerDown: _handlePointerDown,
         onPointerMove: _handlePointerMove,
         onPointerUp: _handlePointerUp,
-        behavior: HitTestBehavior.opaque,
+        // Translucent: let multi-touch events pass through to the map
+        // for pinch-zoom/pan while overlay captures single-finger drawing
+        behavior: HitTestBehavior.translucent,
         child: CustomPaint(
           painter: _FreehandPainter(
             // Pass a snapshot copy — the old delegate holds the previous
