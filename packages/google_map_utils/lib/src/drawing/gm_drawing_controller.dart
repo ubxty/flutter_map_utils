@@ -28,6 +28,13 @@ class GmDrawingController extends ChangeNotifier {
   /// Google Maps controller (set after map creation).
   gm.GoogleMapController? _mapController;
 
+  /// Device pixel ratio for screen ↔ LatLng conversion.
+  ///
+  /// Flutter touch events use logical pixels, but the Google Maps Android SDK
+  /// `Projection.fromScreenLocation` / `toScreenLocation` works in physical
+  /// (device) pixels.  Set this from `MediaQuery.devicePixelRatioOf(context)`.
+  double _devicePixelRatio = 1.0;
+
   /// Haversine distance calculator.
   static const Distance _haversine = Distance();
 
@@ -46,6 +53,17 @@ class GmDrawingController extends ChangeNotifier {
     this.freehandCloseAsPolygon = true,
   }) {
     drawingState.addListener(_onStateChanged);
+  }
+
+  /// Update the device pixel ratio.  Call once from the widget layer, e.g.
+  /// in `didChangeDependencies`:
+  /// ```dart
+  /// _drawingController.updateDevicePixelRatio(
+  ///   MediaQuery.devicePixelRatioOf(context),
+  /// );
+  /// ```
+  void updateDevicePixelRatio(double dpr) {
+    _devicePixelRatio = dpr;
   }
 
   /// The Google Maps controller.
@@ -179,24 +197,35 @@ class GmDrawingController extends ChangeNotifier {
     }
   }
 
-  /// Convert a screen coordinate to LatLng (async).
+  /// Convert a screen coordinate (logical pixels) to LatLng.
+  ///
+  /// Multiplies by [_devicePixelRatio] because the Google Maps Android SDK
+  /// `Projection.fromScreenLocation` expects physical (device) pixels.
   Future<LatLng?> screenToLatLng(Offset screenPoint) async {
     if (_mapController == null) return null;
+    final dpr = _devicePixelRatio;
     final gmLatLng = await _mapController!.getLatLng(
       gm.ScreenCoordinate(
-        x: screenPoint.dx.round(),
-        y: screenPoint.dy.round(),
+        x: (screenPoint.dx * dpr).round(),
+        y: (screenPoint.dy * dpr).round(),
       ),
     );
     return gmLatLng.toCore();
   }
 
-  /// Convert a LatLng to screen coordinate (async).
+  /// Convert a LatLng to screen coordinate (logical pixels).
+  ///
+  /// Divides by [_devicePixelRatio] because the Google Maps Android SDK
+  /// `Projection.toScreenLocation` returns physical (device) pixels.
   Future<Offset?> latLngToScreen(LatLng point) async {
     if (_mapController == null) return null;
+    final dpr = _devicePixelRatio;
     final screenCoord =
         await _mapController!.getScreenCoordinate(point.toGm());
-    return Offset(screenCoord.x.toDouble(), screenCoord.y.toDouble());
+    return Offset(
+      screenCoord.x.toDouble() / dpr,
+      screenCoord.y.toDouble() / dpr,
+    );
   }
 
   /// Notify listeners that the camera or state has changed.

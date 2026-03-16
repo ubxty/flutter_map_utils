@@ -136,18 +136,28 @@ class _GmFreehandOverlayState extends State<GmFreehandOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    return Listener(
-      onPointerDown: _handlePointerDown,
-      onPointerMove: _handlePointerMove,
-      onPointerUp: _handlePointerUp,
-      behavior: HitTestBehavior.opaque,
-      child: CustomPaint(
-        painter: _FreehandPainter(
-          points: _screenPoints,
-          style: widget.previewStyle ??
-              widget.controller.drawingState.defaultStyle,
+    final previewStyle = widget.previewStyle ??
+        widget.controller.drawingState.defaultStyle.copyWith(
+          borderWidth: 4.0,
+        );
+
+    return SizedBox.expand(
+      child: Listener(
+        onPointerDown: _handlePointerDown,
+        onPointerMove: _handlePointerMove,
+        onPointerUp: _handlePointerUp,
+        behavior: HitTestBehavior.opaque,
+        child: CustomPaint(
+          painter: _FreehandPainter(
+            // Pass a snapshot copy — the old delegate holds the previous
+            // snapshot so shouldRepaint can detect changes.
+            points: List.of(_screenPoints),
+            style: previewStyle,
+            closeAsPolygon: widget.closeAsPolygon,
+            isDrawing: _isDrawing,
+          ),
+          size: Size.infinite,
         ),
-        size: Size.infinite,
       ),
     );
   }
@@ -157,14 +167,38 @@ class _GmFreehandOverlayState extends State<GmFreehandOverlay> {
 class _FreehandPainter extends CustomPainter {
   final List<Offset> points;
   final ShapeStyle style;
+  final bool closeAsPolygon;
+  final bool isDrawing;
 
-  _FreehandPainter({required this.points, required this.style});
+  _FreehandPainter({
+    required this.points,
+    required this.style,
+    this.closeAsPolygon = true,
+    this.isDrawing = false,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     if (points.length < 2) return;
 
     final resolved = style.resolve();
+
+    // Draw filled preview area
+    if (closeAsPolygon && points.length >= 3) {
+      final fillPaint = ui.Paint()
+        ..color = resolved.effectiveFillColor
+        ..style = ui.PaintingStyle.fill;
+
+      final fillPath = ui.Path()
+        ..moveTo(points.first.dx, points.first.dy);
+      for (var i = 1; i < points.length; i++) {
+        fillPath.lineTo(points[i].dx, points[i].dy);
+      }
+      fillPath.close();
+      canvas.drawPath(fillPath, fillPaint);
+    }
+
+    // Draw stroke path
     final paint = ui.Paint()
       ..color = resolved.borderColor
       ..strokeWidth = resolved.borderWidth
@@ -177,9 +211,21 @@ class _FreehandPainter extends CustomPainter {
       path.lineTo(points[i].dx, points[i].dy);
     }
     canvas.drawPath(path, paint);
+
+    // Draw closing line from last point to first (dashed hint)
+    if (closeAsPolygon && points.length >= 3 && isDrawing) {
+      final closePaint = ui.Paint()
+        ..color = resolved.borderColor.withValues(alpha: 0.4)
+        ..strokeWidth = resolved.borderWidth * 0.7
+        ..style = ui.PaintingStyle.stroke
+        ..strokeCap = ui.StrokeCap.round;
+
+      canvas.drawLine(points.last, points.first, closePaint);
+    }
   }
 
   @override
   bool shouldRepaint(_FreehandPainter oldDelegate) =>
-      points.length != oldDelegate.points.length;
+      points.length != oldDelegate.points.length ||
+      isDrawing != oldDelegate.isDrawing;
 }
