@@ -43,18 +43,23 @@ class GmFreehandOverlay extends StatefulWidget {
   /// Number of Chaikin corner-cutting iterations for smoothing.
   final int smoothingIterations;
 
-  /// Called when drawing finishes (shape committed).
+  /// Called when drawing is finalized (shape committed).
   final VoidCallback? onDrawingComplete;
+
+  /// Notifier to trigger finalization from outside.
+  /// Set value to `true` to finalize the current drawing.
+  final ValueNotifier<bool>? finalizeNotifier;
 
   const GmFreehandOverlay({
     super.key,
     required this.controller,
     this.previewStyle,
     this.closeAsPolygon = true,
-    this.simplificationTolerance = 5.0,
+    this.simplificationTolerance = 12.0,
     this.minPoints = 4,
     this.smoothingIterations = 2,
     this.onDrawingComplete,
+    this.finalizeNotifier,
   });
 
   @override
@@ -65,9 +70,37 @@ class _GmFreehandOverlayState extends State<GmFreehandOverlay> {
   bool _isDrawing = false;
   final List<Offset> _screenPoints = [];
 
+  @override
+  void initState() {
+    super.initState();
+    widget.finalizeNotifier?.addListener(_onFinalizeRequested);
+  }
+
+  @override
+  void didUpdateWidget(GmFreehandOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.finalizeNotifier != widget.finalizeNotifier) {
+      oldWidget.finalizeNotifier?.removeListener(_onFinalizeRequested);
+      widget.finalizeNotifier?.addListener(_onFinalizeRequested);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.finalizeNotifier?.removeListener(_onFinalizeRequested);
+    super.dispose();
+  }
+
+  void _onFinalizeRequested() {
+    if (widget.finalizeNotifier?.value == true) {
+      widget.finalizeNotifier?.value = false;
+      _finishDrawing();
+    }
+  }
+
   void _handlePointerDown(PointerDownEvent event) {
     _isDrawing = true;
-    _screenPoints.clear();
+    // Don't clear — continue from last point for multi-stroke
     _screenPoints.add(event.localPosition);
     widget.controller.drawingState.beginShapeDrag();
     setState(() {});
@@ -83,7 +116,12 @@ class _GmFreehandOverlayState extends State<GmFreehandOverlay> {
     if (!_isDrawing) return;
     _isDrawing = false;
     widget.controller.drawingState.endShapeDrag();
+    // Don't finalize — wait for next stroke or explicit finalize
+    setState(() {});
+  }
 
+  /// Finalize the accumulated strokes into a polygon.
+  Future<void> _finishDrawing() async {
     if (_screenPoints.length < widget.minPoints) {
       _screenPoints.clear();
       setState(() {});

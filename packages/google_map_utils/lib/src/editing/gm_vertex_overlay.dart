@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:map_utils_core/map_utils_core.dart';
@@ -64,6 +66,9 @@ class _GmVertexOverlayState extends State<GmVertexOverlay> {
   /// Whether we're currently refreshing positions.
   bool _refreshing = false;
 
+  /// Debounce timer for position refresh during zoom/pan.
+  Timer? _refreshDebounce;
+
   @override
   void initState() {
     super.initState();
@@ -81,12 +86,22 @@ class _GmVertexOverlayState extends State<GmVertexOverlay> {
 
   @override
   void dispose() {
+    _refreshDebounce?.cancel();
     widget.controller.removeListener(_onControllerChanged);
     super.dispose();
   }
 
   void _onControllerChanged() {
-    _refreshPositions();
+    // During active drag, update immediately for responsiveness
+    if (widget.controller.drawingState.isDragging) {
+      _refreshPositions();
+      return;
+    }
+    // Otherwise debounce (e.g. during zoom/pan)
+    _refreshDebounce?.cancel();
+    _refreshDebounce = Timer(const Duration(milliseconds: 200), () {
+      _refreshPositions();
+    });
   }
 
   Future<void> _refreshPositions() async {

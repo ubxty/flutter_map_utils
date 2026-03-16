@@ -72,6 +72,9 @@ class DrawingState extends ChangeNotifier {
   /// Whether map gestures should be suppressed (during drawing/editing).
   bool get shouldAbsorbMapGestures => isDrawing || _isDraggingShape;
 
+  /// Whether a shape vertex is currently being dragged.
+  bool get isDragging => _isDraggingShape;
+
   bool _isDraggingShape = false;
 
   /// Points being drawn (live preview).
