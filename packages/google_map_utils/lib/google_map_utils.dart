@@ -24,5 +24,8 @@ export 'src/editing/gm_shape_dragger.dart';
 // Measurement
 export 'src/measurement/gm_measurement_overlay.dart';
 
+// Overlay (Flutter-level renderers above the map canvas)
+export 'src/overlay/gm_polygon_overlay.dart';
+
 // UI
 export 'src/ui/gm_geometry_editor.dart';

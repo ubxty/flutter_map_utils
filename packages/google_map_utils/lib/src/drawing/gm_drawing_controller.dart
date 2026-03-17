@@ -35,6 +35,9 @@ class GmDrawingController extends ChangeNotifier {
   /// (device) pixels.  Set this from `MediaQuery.devicePixelRatioOf(context)`.
   double _devicePixelRatio = 1.0;
 
+  /// Current camera zoom level (updated via [onCameraChanged]).
+  double _zoom = 15.0;
+
   /// Haversine distance calculator.
   static const Distance _haversine = Distance();
 
@@ -65,6 +68,12 @@ class GmDrawingController extends ChangeNotifier {
   void updateDevicePixelRatio(double dpr) {
     _devicePixelRatio = dpr;
   }
+
+  /// Exposed so overlays can compute synchronous LatLng ↔ pixel math.
+  double get devicePixelRatio => _devicePixelRatio;
+
+  /// Current camera zoom level.
+  double get currentZoom => _zoom;
 
   /// The Google Maps controller.
   gm.GoogleMapController? get mapController => _mapController;
@@ -231,7 +240,11 @@ class GmDrawingController extends ChangeNotifier {
   /// Notify listeners that the camera or state has changed.
   ///
   /// Call this from [gm.GoogleMap.onCameraMove] to keep overlays in sync.
-  void onCameraChanged() => notifyListeners();
+  /// Pass [zoom] to keep the zoom level current for synchronous drag math.
+  void onCameraChanged({double? zoom}) {
+    if (zoom != null) _zoom = zoom;
+    notifyListeners();
+  }
 
   @override
   void dispose() {

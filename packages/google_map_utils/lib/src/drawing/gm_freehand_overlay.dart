@@ -42,7 +42,14 @@ class GmFreehandOverlay extends StatefulWidget {
   final int minPoints;
 
   /// Number of Chaikin corner-cutting iterations for smoothing.
+  /// Defaults to 0 (no smoothing) to preserve shape fidelity.
+  /// Set to 1–2 only for organic/freeform shapes where corner rounding is acceptable.
   final int smoothingIterations;
+
+  /// Minimum distance in logical pixels between collected screen points.
+  /// Filters redundant points during drawing to reduce the number of
+  /// platform-channel calls on finalization. Default 4.0 px.
+  final double minSampleDistance;
 
   /// Called when drawing is finalized (shape committed).
   final VoidCallback? onDrawingComplete;
@@ -58,7 +65,8 @@ class GmFreehandOverlay extends StatefulWidget {
     this.closeAsPolygon = true,
     this.simplificationTolerance = 20.0,
     this.minPoints = 4,
-    this.smoothingIterations = 2,
+    this.smoothingIterations = 0,
+    this.minSampleDistance = 4.0,
     this.onDrawingComplete,
     this.finalizeNotifier,
   });
@@ -117,7 +125,13 @@ class _GmFreehandOverlayState extends State<GmFreehandOverlay> {
   void _handlePointerMove(PointerMoveEvent event) {
     if (!_isDrawing || _activePointers.length > 1) return;
     if (event.pointer != _drawingPointer) return;
-    _screenPoints.add(event.localPosition);
+    final pos = event.localPosition;
+    // Skip points closer than minSampleDistance to reduce finalization cost
+    if (_screenPoints.isNotEmpty &&
+        (pos - _screenPoints.last).distance < widget.minSampleDistance) {
+      return;
+    }
+    _screenPoints.add(pos);
     setState(() {});
   }
 
