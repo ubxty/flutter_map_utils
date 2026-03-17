@@ -125,18 +125,25 @@ class _GmPolygonOverlayState extends State<GmPolygonOverlay> {
     if (widget.controller.mapController == null) return;
     _refreshing = true;
 
-    final newPolygons = <List<Offset>>[];
-    for (final poly in widget.polygons) {
-      final screenPts = <Offset>[];
-      for (final pt in poly.points) {
-        final screen = await widget.controller.latLngToScreen(pt);
-        if (screen != null) screenPts.add(screen);
+    try {
+      final newPolygons = <List<Offset>>[];
+      for (final poly in widget.polygons) {
+        final screenPts = <Offset>[];
+        for (final pt in poly.points) {
+          final screen = await widget.controller.latLngToScreen(pt);
+          if (screen != null) screenPts.add(screen);
+        }
+        newPolygons.add(screenPts);
       }
-      newPolygons.add(screenPts);
-    }
 
-    _screenPolygons = newPolygons;
-    _refreshing = false;
+      _screenPolygons = newPolygons;
+    } catch (_) {
+      // Controller may have been disposed during a map switch;
+      // clear cached data so the next refresh can try again.
+      _screenPolygons = [];
+    } finally {
+      _refreshing = false;
+    }
     if (mounted) setState(() {});
   }
 
@@ -144,11 +151,13 @@ class _GmPolygonOverlayState extends State<GmPolygonOverlay> {
   Widget build(BuildContext context) {
     if (_screenPolygons.isEmpty) return const SizedBox.shrink();
 
-    return SizedBox.expand(
-      child: CustomPaint(
-        painter: _PolygonOverlayPainter(
-          screenPolygons: _screenPolygons,
-          polygons: widget.polygons,
+    return IgnorePointer(
+      child: SizedBox.expand(
+        child: CustomPaint(
+          painter: _PolygonOverlayPainter(
+            screenPolygons: _screenPolygons,
+            polygons: widget.polygons,
+          ),
         ),
       ),
     );

@@ -87,6 +87,12 @@ class GmDrawingController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Clear the map controller reference (e.g. when switching away from Google Maps).
+  void clearMapController() {
+    _mapController = null;
+    notifyListeners();
+  }
+
   void _onStateChanged() => notifyListeners();
 
   /// Route a map tap to the active drawing tool.
