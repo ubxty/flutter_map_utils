@@ -1,9 +1,9 @@
 name: map_utils_core
 description: "Platform-agnostic geometry algorithms, shape models, drawing state, snapping, undo/redo, and GeoJSON utilities. No map-SDK dependency — works with any map engine."
-version: 0.2.0
+version: 0.0.2
 homepage: https://ubxty.com
-repository: https://github.com/ubxty/map_utils
-issue_tracker: https://github.com/ubxty/map_utils/issues
+repository: https://github.com/ubxty/flutter_map_utils
+issue_tracker: https://github.com/ubxty/flutter_map_utils/issues
 
 topics:
   - map
@@ -23,8 +23,6 @@ platforms:
 environment:
   sdk: ">=3.6.0 <4.0.0"
   flutter: ">=3.27.0"
-
-resolution: workspace
 
 dependencies:
   collection: ^1.18.0

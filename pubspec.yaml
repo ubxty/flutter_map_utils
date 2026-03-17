@@ -14,7 +14,7 @@ dev_dependencies:
 
 melos:
   name: map_utils
-  repository: https://github.com/ubxty/map_utils
+  repository: https://github.com/ubxty/flutter_map_utils
 
   command:
     bootstrap:

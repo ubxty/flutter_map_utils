@@ -1,6 +1,10 @@
 # Changelog
 
-## 0.2.0
+## 0.0.2
+
+- Depends on `map_utils_core ^0.0.2` — all geo types now available via core
+
+## 0.0.1
 
 - **Monorepo restructure**: Now part of the `map_utils` monorepo alongside `map_utils_core` and `google_map_utils`
 - **DRY refactor**: `DrawingToolbar` and `ShapeInfoPanel` moved to `map_utils_core` (re-exported for backward compatibility)
