@@ -12,7 +12,7 @@ A drawing, editing & measurement toolkit for [google_maps_flutter](https://pub.d
 
 **google_map_utils** is an **addon** for `google_maps_flutter` — it does *not* replace it. Drop it into any existing Google Maps project and instantly unlock interactive drawing, shape editing, snapping, measurement, and GeoJSON support.
 
-Same drawing state, same algorithms, same GeoJSON — just a different map engine. If you use `flutter_map`, see [`flutter_map_utils`](https://pub.dev/packages/flutter_map_utils) instead.
+Same drawing state, same algorithms, same GeoJSON — just a different map engine. If you need the `flutter_map` binding instead, see [`flutter_map_utils`](https://pub.dev/packages/flutter_map_utils).
 
 ---
 
@@ -41,7 +41,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  google_map_utils: ^0.2.0
+  google_map_utils: ^0.0.2
 ```
 
 Then run:
@@ -50,7 +50,9 @@ Then run:
 flutter pub get
 ```
 
-> **Note:** This package depends on `google_maps_flutter ^2.10.0` and `latlong2 ^0.9.1`. Both are pulled in automatically.
+> **Note:** This package depends on `google_maps_flutter ^2.10.0`. It is pulled in automatically.
+>
+> This package re-exports everything from [`map_utils_core`](https://pub.dev/packages/map_utils_core) — including `LatLng` and all geo types — so you don't need to add any coordinate package separately.
 >
 > **Platform setup:** You still need a Google Maps API key configured per the [google_maps_flutter setup guide](https://pub.dev/packages/google_maps_flutter#getting-started).
 
@@ -407,9 +409,9 @@ drawingState.clearAll();
 | Extension | Purpose |
 |---|---|
 | `StrokeTypeToGmPattern` | Converts `StrokeType` → `List<PatternItem>` for polylines |
-| `LatLngToGm` | Converts `latlong2.LatLng` → `google_maps.LatLng` |
-| `GmLatLngToCore` | Converts `google_maps.LatLng` → `latlong2.LatLng` |
-| `LatLngListToGm` | Converts `List<latlong2.LatLng>` → `List<google_maps.LatLng>` |
+| `LatLngToGm` | Converts `LatLng` (from `map_utils_core`) → `google_maps.LatLng` |
+| `GmLatLngToCore` | Converts `google_maps.LatLng` → `LatLng` (from `map_utils_core`) |
+| `LatLngListToGm` | Converts `List<LatLng>` → `List<google_maps.LatLng>` |
 | `GmGeometryUtils` | `boundingBox()` → `LatLngBounds` from a list of points |
 
 ---
@@ -433,17 +435,24 @@ drawingState.clearAll();
 | Flutter | >= 3.27.0 |
 | Dart | >= 3.6.0 |
 | google_maps_flutter | ^2.10.0 |
-| latlong2 | ^0.9.1 |
+| map_utils_core | ^0.0.2 |
 
 ---
 
-## Migrating from flutter_map_utils
+## Switching Between Map Engines
 
-Switching from `flutter_map` to `google_maps_flutter`? The shared `DrawingState` means you can:
+`flutter_map_utils` and `google_map_utils` are **not interchangeable** — they bind to different map SDKs with different APIs. Choose based on your map engine:
 
-1. Replace `flutter_map_utils` with `google_map_utils` in your pubspec
-2. Replace `FlutterMapGeometryEditor` with `GoogleMapGeometryEditor`
-3. Keep the same `DrawingState`, `ShapeStyle`, `GeoJsonUtils`, snapping, and undo/redo code
+| You use | Package to add |
+|---|---|
+| `flutter_map` | `flutter_map_utils` |
+| `google_maps_flutter` | `google_map_utils` |
+
+Both packages share the same `DrawingState`, `ShapeStyle`, `GeoJsonUtils`, snapping, serialization, and undo/redo logic from `map_utils_core`. So if you ever need to **swap map engines**, the migration is minimal:
+
+1. Replace `flutter_map_utils` with `google_map_utils` in your pubspec (or vice versa)
+2. Replace `FlutterMapGeometryEditor` with `GoogleMapGeometryEditor` (or vice versa)
+3. Keep all `DrawingState`, `ShapeStyle`, `GeoJsonUtils`, and other core code unchanged
 
 Your shapes, styles, GeoJSON exports, and state management stay identical.
 

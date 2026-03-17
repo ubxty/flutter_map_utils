@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.3
+
+- Updated README: removed `latlong2` references; `LatLng` and geo types come from `map_utils_core` directly
+- Fixed Quick Start import — no longer requires a separate `latlong2` import
+- Compatibility table now shows `map_utils_core ^0.0.2` instead of `latlong2`
+
 ## 0.0.2
 
 - Depends on `map_utils_core ^0.0.2` — all geo types now available via core

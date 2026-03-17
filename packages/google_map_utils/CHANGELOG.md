@@ -1,3 +1,9 @@
+## 0.0.3
+
+- Updated README: removed `latlong2` references throughout; Extension table now references `LatLng` from `map_utils_core`
+- Renamed confusing "Migrating from flutter_map_utils" section to "Switching Between Map Engines" with clear guidance on when to use each package
+- Compatibility table now shows `map_utils_core ^0.0.2` instead of `latlong2`
+
 ## 0.0.2
 
 - Depends on `map_utils_core ^0.0.2` — all geo types now available via core

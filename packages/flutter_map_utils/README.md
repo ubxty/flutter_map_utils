@@ -42,7 +42,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  flutter_map_utils: ^0.2.0
+  flutter_map_utils: ^0.0.2
 ```
 
 Then run:
@@ -51,9 +51,9 @@ Then run:
 flutter pub get
 ```
 
-> **Note:** This package depends on `flutter_map ^8.0.0` and `latlong2 ^0.9.1`. Both are pulled in automatically.
+> **Note:** This package depends on `flutter_map ^8.0.0`. It is pulled in automatically.
 >
-> This package re-exports everything from [`map_utils_core`](https://pub.dev/packages/map_utils_core) — you don't need to add it separately. A [`google_map_utils`](https://pub.dev/packages/google_map_utils) package is also available for Google Maps.
+> This package re-exports everything from [`map_utils_core`](https://pub.dev/packages/map_utils_core) — including `LatLng` and all geo types — so you don't need to add any coordinate package separately. A [`google_map_utils`](https://pub.dev/packages/google_map_utils) package is also available for Google Maps.
 
 ---
 
@@ -66,7 +66,6 @@ The fastest way to get a full drawing editor on screen:
 ```dart
 import 'package:flutter_map_utils/flutter_map_utils.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
 
 final drawingState = DrawingState();
 
@@ -310,7 +309,7 @@ flutter run
 | Flutter | >= 3.27.0 |
 | Dart | >= 3.6.0 |
 | flutter_map | ^8.0.0 |
-| latlong2 | ^0.9.1 |
+| map_utils_core | ^0.0.2 |
 
 ---
 

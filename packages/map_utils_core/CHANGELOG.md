@@ -1,3 +1,9 @@
+## 0.0.3
+
+- Updated README: document `GeoDistance`, `GeoPath`, `GeoCircle`, `GeoBounds` in Modules and API Reference tables
+- README now explicitly notes that `LatLng` and all geo types are re-exported from this package — no external coordinate package required
+- Removed `latlong2` from the Compatibility table in README (it remains an internal transitive dependency)
+
 ## 0.0.2
 
 - **Geo types bundled**: `LatLng`, `Distance`, `Path`, `Circle`, `LengthUnit`,

@@ -40,6 +40,8 @@ Use `map_utils_core` directly if:
 | **Snapping** | `SnappingEngine` with vertex, midpoint, edge, intersection, grid, perpendicular |
 | **Selection** | `SelectionUtils.findClosestShape()` with configurable tolerance |
 | **UI Widgets** | `DrawingToolbar`, `ShapeInfoPanel` — shared across map providers |
+| **Geo Types** | `LatLng`, `Distance` (Haversine & Vincenty), `Path`, `Circle`, `LengthUnit`, `CatmullRomSpline2D` — coordinate & geometry primitives |
+| **Enhanced Geo** | `GeoDistance`, `GeoPath`, `GeoCircle`, `GeoBounds` — extended geo utilities built on the primitives above |
 
 ---
 
@@ -47,10 +49,10 @@ Use `map_utils_core` directly if:
 
 ```yaml
 dependencies:
-  map_utils_core: ^0.2.0
+  map_utils_core: ^0.0.2
 ```
 
-> **Tip:** If you use `flutter_map_utils` or `google_map_utils`, this package is already included.
+> **Tip:** If you use `flutter_map_utils` or `google_map_utils`, this package is already included. All geo types (`LatLng`, `Distance`, `Path`, `Circle`, etc.) are re-exported directly from `map_utils_core` — no additional coordinate package needed.
 
 ---
 
@@ -472,6 +474,12 @@ ShapeInfoPanel(drawingState: state)
 | `SelectionUtils` | Hit-testing: `findClosestShape()`, `distanceToShape()`, `nearestEdgeDistance()` |
 | `DrawingToolbar` | Mode selector with undo/redo/delete — customizable via `buttonBuilder` |
 | `ShapeInfoPanel` | Displays selected shape info |
+| `LatLng` | Coordinate primitive (re-exported; use this instead of a separate coordinate package) |
+| `Distance` | Haversine / Vincenty distance calculations |
+| `GeoDistance` | Extended distance: midpoint, interpolate, crossTrackDistance, pathLength, and more |
+| `GeoPath` | Enhanced coordinate path with bounds, nearest point, bearings, subPath |
+| `GeoCircle` | Circle with `toPolygon()`, `overlaps()`, `toBounds()` |
+| `GeoBounds` | Bounding box from points, contains, union, intersection, center |
 
 ---
 
@@ -481,7 +489,6 @@ ShapeInfoPanel(drawingState: state)
 |---|---|
 | Dart | >= 3.6.0 |
 | Flutter | >= 3.27.0 (for UI widgets only) |
-| latlong2 | ^0.9.1 |
 
 ---
 
