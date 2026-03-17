@@ -29,7 +29,9 @@ dependencies:
     sdk: flutter
   flutter_map: ^8.0.0
   latlong2: ^0.9.1
-  map_utils_core: ^0.0.2
+  # map_utils_core: ^0.0.3  # pub.dev (uncomment when publishing)
+  map_utils_core:             # local path (active for development)
+    path: ../map_utils_core
   meta: ^1.11.0
 
 dev_dependencies:
