@@ -70,6 +70,13 @@ class _GmVertexOverlayState extends State<GmVertexOverlay> {
   /// Debounce timer for position refresh during zoom/pan.
   Timer? _refreshDebounce;
 
+  // --- Anchor state for synchronous camera-follow transform ---
+  Map<int, Offset>? _anchorVertexPositions;
+  Map<int, Offset>? _anchorEdgePositions;
+  LatLng? _anchorCenter;
+  double? _anchorZoom;
+  Size _widgetSize = Size.zero;
+
   // --- Synchronous drag math (computed once per drag gesture) ---
   /// Degrees of latitude per logical pixel at the dragged vertex.
   double _latPerPixel = 0;
@@ -110,11 +117,73 @@ class _GmVertexOverlayState extends State<GmVertexOverlay> {
     // here would overwrite positions with stale values and cause flicker.
     if (widget.controller.drawingState.isDragging) return;
 
-    // Otherwise debounce (e.g. during zoom/pan)
+    final newCenter = widget.controller.cameraCenter;
+    final newZoom = widget.controller.currentZoom;
+
+    // Apply synchronous camera-follow transform so vertex handles move
+    // in parallel with the map during pan/zoom/rotate.
+    if (newCenter != null &&
+        _vertexPositions.isNotEmpty &&
+        _widgetSize != Size.zero) {
+      if (_anchorVertexPositions == null) {
+        _anchorVertexPositions = Map.of(_vertexPositions);
+        _anchorEdgePositions = Map.of(_edgeMidPositions);
+        _anchorCenter = newCenter;
+        _anchorZoom = newZoom;
+      } else {
+        _applyCameraTransform(newCenter, newZoom);
+        if (mounted) setState(() {});
+      }
+    }
+
+    // Debounced full-accuracy refresh (fires after gesture stops).
     _refreshDebounce?.cancel();
-    _refreshDebounce = Timer(const Duration(milliseconds: 100), () {
+    _refreshDebounce = Timer(const Duration(milliseconds: 200), () {
+      _anchorVertexPositions = null;
+      _anchorEdgePositions = null;
+      _anchorCenter = null;
+      _anchorZoom = null;
       _refreshPositions();
     });
+  }
+
+  void _applyCameraTransform(LatLng newCenter, double newZoom) {
+    if (_anchorVertexPositions == null ||
+        _anchorCenter == null ||
+        _anchorZoom == null) return;
+
+    final dLat = newCenter.latitude - _anchorCenter!.latitude;
+    final dLng = newCenter.longitude - _anchorCenter!.longitude;
+
+    final cosLat = math.cos(newCenter.latitude * math.pi / 180);
+    final mapSize = 256.0 * math.pow(2.0, newZoom);
+    final dpr = widget.controller.devicePixelRatio;
+
+    final pxPerDegLng = mapSize / 360.0 / dpr;
+    final pxPerDegLat = mapSize / (360.0 * cosLat) / dpr;
+
+    final dx = -dLng * pxPerDegLng;
+    final dy = dLat * pxPerDegLat;
+
+    final zoomScale = math.pow(2.0, newZoom - _anchorZoom!);
+
+    final cx = _widgetSize.width / 2;
+    final cy = _widgetSize.height / 2;
+
+    Offset transform(Offset p) {
+      final sx = cx + (p.dx - cx) * zoomScale + dx;
+      final sy = cy + (p.dy - cy) * zoomScale + dy;
+      return Offset(sx, sy);
+    }
+
+    _vertexPositions.clear();
+    for (final e in _anchorVertexPositions!.entries) {
+      _vertexPositions[e.key] = transform(e.value);
+    }
+    _edgeMidPositions.clear();
+    for (final e in (_anchorEdgePositions ?? {}).entries) {
+      _edgeMidPositions[e.key] = transform(e.value);
+    }
   }
 
   Future<void> _refreshPositions() async {
@@ -163,6 +232,11 @@ class _GmVertexOverlayState extends State<GmVertexOverlay> {
       ..clear()
       ..addAll(newEdgePos);
     _refreshing = false;
+    // Clear anchor state — we now have accurate positions.
+    _anchorVertexPositions = null;
+    _anchorEdgePositions = null;
+    _anchorCenter = null;
+    _anchorZoom = null;
     if (mounted) setState(() {});
   }
 
@@ -296,7 +370,12 @@ class _GmVertexOverlayState extends State<GmVertexOverlay> {
       }
     }
 
-    return Stack(children: children);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        _widgetSize = constraints.biggest;
+        return Stack(children: children);
+      },
+    );
   }
 
   Widget _buildVertexHandle(int index, Offset pos) {

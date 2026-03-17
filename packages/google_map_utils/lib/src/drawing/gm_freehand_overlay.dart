@@ -58,6 +58,10 @@ class GmFreehandOverlay extends StatefulWidget {
   /// Set value to `true` to finalize the current drawing.
   final ValueNotifier<bool>? finalizeNotifier;
 
+  /// Notifier to clear/undo the current freehand stroke from outside.
+  /// Set value to `true` to clear the current drawing.
+  final ValueNotifier<bool>? undoNotifier;
+
   const GmFreehandOverlay({
     super.key,
     required this.controller,
@@ -69,6 +73,7 @@ class GmFreehandOverlay extends StatefulWidget {
     this.minSampleDistance = 4.0,
     this.onDrawingComplete,
     this.finalizeNotifier,
+    this.undoNotifier,
   });
 
   @override
@@ -85,6 +90,7 @@ class _GmFreehandOverlayState extends State<GmFreehandOverlay> {
   void initState() {
     super.initState();
     widget.finalizeNotifier?.addListener(_onFinalizeRequested);
+    widget.undoNotifier?.addListener(_onUndoRequested);
   }
 
   @override
@@ -94,11 +100,16 @@ class _GmFreehandOverlayState extends State<GmFreehandOverlay> {
       oldWidget.finalizeNotifier?.removeListener(_onFinalizeRequested);
       widget.finalizeNotifier?.addListener(_onFinalizeRequested);
     }
+    if (oldWidget.undoNotifier != widget.undoNotifier) {
+      oldWidget.undoNotifier?.removeListener(_onUndoRequested);
+      widget.undoNotifier?.addListener(_onUndoRequested);
+    }
   }
 
   @override
   void dispose() {
     widget.finalizeNotifier?.removeListener(_onFinalizeRequested);
+    widget.undoNotifier?.removeListener(_onUndoRequested);
     super.dispose();
   }
 
@@ -106,6 +117,17 @@ class _GmFreehandOverlayState extends State<GmFreehandOverlay> {
     if (widget.finalizeNotifier?.value == true) {
       widget.finalizeNotifier?.value = false;
       _finishDrawing();
+    }
+  }
+
+  void _onUndoRequested() {
+    if (widget.undoNotifier?.value == true) {
+      widget.undoNotifier?.value = false;
+      _isDrawing = false;
+      _drawingPointer = null;
+      _activePointers.clear();
+      _screenPoints.clear();
+      setState(() {});
     }
   }
 

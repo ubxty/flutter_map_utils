@@ -38,6 +38,9 @@ class GmDrawingController extends ChangeNotifier {
   /// Current camera zoom level (updated via [onCameraChanged]).
   double _zoom = 15.0;
 
+  /// Current camera center (updated via [onCameraChanged]).
+  LatLng? _cameraCenter;
+
   /// Haversine distance calculator.
   static const Distance _haversine = Distance();
 
@@ -74,6 +77,9 @@ class GmDrawingController extends ChangeNotifier {
 
   /// Current camera zoom level.
   double get currentZoom => _zoom;
+
+  /// Current camera center.
+  LatLng? get cameraCenter => _cameraCenter;
 
   /// The Google Maps controller.
   gm.GoogleMapController? get mapController => _mapController;
@@ -247,8 +253,9 @@ class GmDrawingController extends ChangeNotifier {
   ///
   /// Call this from [gm.GoogleMap.onCameraMove] to keep overlays in sync.
   /// Pass [zoom] to keep the zoom level current for synchronous drag math.
-  void onCameraChanged({double? zoom}) {
+  void onCameraChanged({double? zoom, LatLng? center}) {
     if (zoom != null) _zoom = zoom;
+    if (center != null) _cameraCenter = center;
     notifyListeners();
   }
 

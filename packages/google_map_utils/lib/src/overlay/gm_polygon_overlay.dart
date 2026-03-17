@@ -1,7 +1,8 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:google_map_utils/src/drawing/gm_drawing_controller.dart';
@@ -76,6 +77,17 @@ class _GmPolygonOverlayState extends State<GmPolygonOverlay> {
   bool _refreshing = false;
   Timer? _debounce;
 
+  // Anchor state for synchronous camera-follow transform.
+  // On the first camera change we snapshot the current screen positions
+  // and camera state. Subsequent camera changes compute a transform from
+  // the anchor → current state and apply it to the anchored positions.
+  // This keeps the overlay in sync with the map at 60fps without waiting
+  // for async platform-channel conversions.
+  List<List<Offset>>? _anchorScreenPolygons;
+  LatLng? _anchorCenter;
+  double? _anchorZoom;
+  Size _widgetSize = Size.zero;
+
   @override
   void initState() {
     super.initState();
@@ -106,9 +118,76 @@ class _GmPolygonOverlayState extends State<GmPolygonOverlay> {
   }
 
   void _onControllerChanged() {
-    // Camera moved — debounce to avoid excessive refreshes during pan/zoom.
+    final newCenter = widget.controller.cameraCenter;
+    final newZoom = widget.controller.currentZoom;
+
+    // Apply synchronous transform for instant visual feedback during
+    // pan/zoom/rotate so the overlay moves in parallel with the map.
+    if (newCenter != null &&
+        _screenPolygons.isNotEmpty &&
+        _widgetSize != Size.zero) {
+      if (_anchorScreenPolygons == null) {
+        // First camera-change: snapshot current accurate positions as anchor.
+        _anchorScreenPolygons =
+            _screenPolygons.map((l) => List.of(l)).toList();
+        _anchorCenter = newCenter;
+        _anchorZoom = newZoom;
+      } else {
+        _applyCameraTransform(newCenter, newZoom);
+        if (mounted) setState(() {});
+      }
+    }
+
+    // Debounced full-accuracy refresh (fires after gesture stops).
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 80), _refreshPositions);
+    _debounce = Timer(const Duration(milliseconds: 200), () {
+      _anchorScreenPolygons = null;
+      _anchorCenter = null;
+      _anchorZoom = null;
+      _refreshPositions();
+    });
+  }
+
+  /// Compute screen-position deltas from [_anchorCenter]/[_anchorZoom] to
+  /// the current camera state and apply them to [_anchorScreenPolygons].
+  void _applyCameraTransform(LatLng newCenter, double newZoom) {
+    if (_anchorScreenPolygons == null ||
+        _anchorCenter == null ||
+        _anchorZoom == null) return;
+
+    final dLat = newCenter.latitude - _anchorCenter!.latitude;
+    final dLng = newCenter.longitude - _anchorCenter!.longitude;
+
+    final cosLat = math.cos(newCenter.latitude * math.pi / 180);
+    final mapSize = 256.0 * math.pow(2.0, newZoom);
+    final dpr = widget.controller.devicePixelRatio;
+
+    // Pixels per degree in logical pixels.
+    final pxPerDegLng = mapSize / 360.0 / dpr;
+    final pxPerDegLat = mapSize / (360.0 * cosLat) / dpr;
+
+    // Camera moves right → features shift left, camera moves up → features
+    // shift down.
+    final dx = -dLng * pxPerDegLng;
+    final dy = dLat * pxPerDegLat;
+
+    final zoomScale = math.pow(2.0, newZoom - _anchorZoom!);
+
+    final cx = _widgetSize.width / 2;
+    final cy = _widgetSize.height / 2;
+
+    final newPolygons = <List<Offset>>[];
+    for (final anchorPoly in _anchorScreenPolygons!) {
+      final transformed = <Offset>[];
+      for (final p in anchorPoly) {
+        // Scale around screen centre, then translate.
+        final sx = cx + (p.dx - cx) * zoomScale + dx;
+        final sy = cy + (p.dy - cy) * zoomScale + dy;
+        transformed.add(Offset(sx, sy));
+      }
+      newPolygons.add(transformed);
+    }
+    _screenPolygons = newPolygons;
   }
 
   /// Returns true when polygon data has changed enough to warrant a refresh.
@@ -143,6 +222,10 @@ class _GmPolygonOverlayState extends State<GmPolygonOverlay> {
       _screenPolygons = [];
     } finally {
       _refreshing = false;
+      // Clear anchor state — we now have accurate positions.
+      _anchorScreenPolygons = null;
+      _anchorCenter = null;
+      _anchorZoom = null;
     }
     if (mounted) setState(() {});
   }
@@ -152,13 +235,18 @@ class _GmPolygonOverlayState extends State<GmPolygonOverlay> {
     if (_screenPolygons.isEmpty) return const SizedBox.shrink();
 
     return IgnorePointer(
-      child: SizedBox.expand(
-        child: CustomPaint(
-          painter: _PolygonOverlayPainter(
-            screenPolygons: _screenPolygons,
-            polygons: widget.polygons,
-          ),
-        ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          _widgetSize = constraints.biggest;
+          return SizedBox.expand(
+            child: CustomPaint(
+              painter: _PolygonOverlayPainter(
+                screenPolygons: _screenPolygons,
+                polygons: widget.polygons,
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -183,43 +271,51 @@ class _PolygonOverlayPainter extends CustomPainter {
       final screens = screenPolygons[i];
       final data = polygons[i];
 
-      if (data.closed && screens.length < 3) continue;
-      if (!data.closed && screens.length < 2) continue;
+      final canDrawPath = data.closed
+          ? screens.length >= 3
+          : screens.length >= 2;
 
-      final path = ui.Path()..moveTo(screens[0].dx, screens[0].dy);
-      for (final pt in screens.skip(1)) {
-        path.lineTo(pt.dx, pt.dy);
-      }
-      if (data.closed) path.close();
+      if (canDrawPath) {
+        final path = ui.Path()..moveTo(screens[0].dx, screens[0].dy);
+        for (final pt in screens.skip(1)) {
+          path.lineTo(pt.dx, pt.dy);
+        }
+        if (data.closed) path.close();
 
-      // Fill (polygons only)
-      if (data.closed) {
+        // Fill (polygons only)
+        if (data.closed) {
+          canvas.drawPath(
+            path,
+            ui.Paint()
+              ..color = data.fillColor
+              ..style = ui.PaintingStyle.fill,
+          );
+        }
+
+        // Stroke
         canvas.drawPath(
           path,
           ui.Paint()
-            ..color = data.fillColor
-            ..style = ui.PaintingStyle.fill,
+            ..color = data.strokeColor
+            ..strokeWidth = data.strokeWidth
+            ..style = ui.PaintingStyle.stroke
+            ..strokeJoin = ui.StrokeJoin.round
+            ..strokeCap = ui.StrokeCap.round,
         );
       }
 
-      // Stroke
-      canvas.drawPath(
-        path,
-        ui.Paint()
-          ..color = data.strokeColor
-          ..strokeWidth = data.strokeWidth
-          ..style = ui.PaintingStyle.stroke
-          ..strokeJoin = ui.StrokeJoin.round
-          ..strokeCap = ui.StrokeCap.round,
-      );
-
-      // Vertex dots
-      if (data.showVertexDots) {
-        final dotPaint = ui.Paint()
-          ..color = data.strokeColor
+      // Vertex dots — always draw when enabled, even for a single point
+      if (data.showVertexDots && screens.isNotEmpty) {
+        final dotFill = ui.Paint()
+          ..color = Colors.yellow
           ..style = ui.PaintingStyle.fill;
+        final dotStroke = ui.Paint()
+          ..color = data.strokeColor
+          ..style = ui.PaintingStyle.stroke
+          ..strokeWidth = 2.0;
         for (final pt in screens) {
-          canvas.drawCircle(pt, data.vertexDotRadius, dotPaint);
+          canvas.drawCircle(pt, data.vertexDotRadius, dotFill);
+          canvas.drawCircle(pt, data.vertexDotRadius, dotStroke);
         }
       }
     }
