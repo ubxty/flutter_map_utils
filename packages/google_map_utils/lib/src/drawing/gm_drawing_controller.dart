@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart' as gm;
 import 'package:latlong2/latlong.dart';
@@ -34,6 +35,16 @@ class GmDrawingController extends ChangeNotifier {
   /// `Projection.fromScreenLocation` / `toScreenLocation` works in physical
   /// (device) pixels.  Set this from `MediaQuery.devicePixelRatioOf(context)`.
   double _devicePixelRatio = 1.0;
+
+  // Google Maps projection APIs do not use the same pixel-space semantics
+  // across platforms. Android expects physical pixels; iOS maps API aligns
+  // with logical points. Using DPR on iOS causes expanded/shifted geometry
+  // when converting freehand screen points to LatLng.
+  double get _projectionScale {
+    return defaultTargetPlatform == TargetPlatform.android
+        ? _devicePixelRatio
+        : 1.0;
+  }
 
   /// Current camera zoom level (updated via [onCameraChanged]).
   double _zoom = 15.0;
@@ -220,15 +231,14 @@ class GmDrawingController extends ChangeNotifier {
 
   /// Convert a screen coordinate (logical pixels) to LatLng.
   ///
-  /// Multiplies by [_devicePixelRatio] because the Google Maps Android SDK
-  /// `Projection.fromScreenLocation` expects physical (device) pixels.
+  /// Android path uses physical pixels, iOS path uses logical points.
   Future<LatLng?> screenToLatLng(Offset screenPoint) async {
     if (_mapController == null) return null;
-    final dpr = _devicePixelRatio;
+    final scale = _projectionScale;
     final gmLatLng = await _mapController!.getLatLng(
       gm.ScreenCoordinate(
-        x: (screenPoint.dx * dpr).round(),
-        y: (screenPoint.dy * dpr).round(),
+        x: (screenPoint.dx * scale).round(),
+        y: (screenPoint.dy * scale).round(),
       ),
     );
     return gmLatLng.toCore();
@@ -236,16 +246,15 @@ class GmDrawingController extends ChangeNotifier {
 
   /// Convert a LatLng to screen coordinate (logical pixels).
   ///
-  /// Divides by [_devicePixelRatio] because the Google Maps Android SDK
-  /// `Projection.toScreenLocation` returns physical (device) pixels.
+  /// Android path returns physical pixels; iOS aligns with logical points.
   Future<Offset?> latLngToScreen(LatLng point) async {
     if (_mapController == null) return null;
-    final dpr = _devicePixelRatio;
+    final scale = _projectionScale;
     final screenCoord =
         await _mapController!.getScreenCoordinate(point.toGm());
     return Offset(
-      screenCoord.x.toDouble() / dpr,
-      screenCoord.y.toDouble() / dpr,
+      screenCoord.x.toDouble() / scale,
+      screenCoord.y.toDouble() / scale,
     );
   }
 
