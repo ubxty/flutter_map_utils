@@ -255,6 +255,16 @@ class DrawingState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Update a shape without adding an undo history entry.
+  /// Useful for high-frequency drag previews where history should be
+  /// committed once at gesture end.
+  void updateShapeNoHistory(DrawableShape oldShape, DrawableShape newShape) {
+    final index = _shapes.indexWhere((s) => s.id == oldShape.id);
+    if (index < 0) return;
+    _shapes[index] = newShape;
+    notifyListeners();
+  }
+
   /// Duplicate the selected shape with a small offset.
   DrawableShape? duplicateSelected({
     double latOffset = 0.0005,

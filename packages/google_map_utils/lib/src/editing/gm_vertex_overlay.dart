@@ -77,12 +77,11 @@ class _GmVertexOverlayState extends State<GmVertexOverlay> {
   double? _anchorZoom;
   Size _widgetSize = Size.zero;
 
-  // --- Synchronous drag math (computed once per drag gesture) ---
-  /// Degrees of latitude per logical pixel at the dragged vertex.
-  double _latPerPixel = 0;
-
-  /// Degrees of longitude per logical pixel at the dragged vertex.
-  double _lngPerPixel = 0;
+  DrawableShape? _dragStartShape;
+  bool _dragMoved = false;
+  bool _dragSyncInFlight = false;
+  int? _pendingDragSyncIndex;
+  Offset? _pendingDragSyncScreenPos;
 
   @override
   void initState() {
@@ -243,53 +242,88 @@ class _GmVertexOverlayState extends State<GmVertexOverlay> {
   void _onVertexDragStart(int index) {
     final selected = widget.controller.drawingState.selectedShape;
     if (selected != null && index < selected.allPoints.length) {
-      // Compute synchronous pixel → LatLng scale from the vertex location
-      // and current camera zoom. This avoids any async call in the hot drag path.
-      final zoom = widget.controller.currentZoom;
-      final dpr  = widget.controller.devicePixelRatio;
-      final lat  = selected.allPoints[index].latitude;
-      // Mercator formula: equatorial circumference / (tile_pixels * 2^zoom) = m/physical_px
-      const circumference = 40075016.686;
-      final metersPerPhysicalPx =
-          circumference * math.cos(lat * math.pi / 180) / (256.0 * math.pow(2.0, zoom));
-      // Convert physical → logical: 1 logical pixel = DPR physical pixels
-      final metersPerLogicalPx = metersPerPhysicalPx * dpr;
-      _latPerPixel = metersPerLogicalPx / 111320.0;
-      _lngPerPixel = metersPerLogicalPx / (111320.0 * math.cos(lat * math.pi / 180));
+      _dragStartShape = selected;
+      _dragMoved = false;
     }
     widget.controller.drawingState.beginShapeDrag();
   }
 
-  /// Drag update runs on every pointer-move event (60fps). This path must be
-  /// fully synchronous — no platform-channel calls allowed here.
+  /// Drag update keeps the handle under finger immediately, while geometry
+  /// sync runs through a throttled projection queue.
   void _onVertexDragUpdate(int index, DragUpdateDetails details) {
-    final selected = widget.controller.drawingState.selectedShape;
-    if (selected == null) return;
-
     final currentPos = _vertexPositions[index];
     if (currentPos == null) return;
 
-    // 1. Update screen-position cache immediately (pure Dart, 0 async).
-    _vertexPositions[index] = currentPos + details.delta;
+    // Update screen-position cache immediately (pure Dart, no async).
+    final newPos = currentPos + details.delta;
+    _vertexPositions[index] = newPos;
 
-    // 2. Derive LatLng delta from pixel delta using pre-computed scale.
-    //    dy is inverted: moving down (positive dy) decreases latitude.
-    final points = List.of(selected.allPoints);
-    if (index >= points.length) return;
-    points[index] = LatLng(
-      points[index].latitude  - details.delta.dy * _latPerPixel,
-      points[index].longitude + details.delta.dx * _lngPerPixel,
-    );
-    _updateShapePoints(selected, points);
+    _dragMoved = true;
+    _queueDraggedVertexProjectionSync(index, newPos);
 
-    // 3. Redraw handles with updated positions (no async refresh).
+    // Redraw handles with updated positions.
     if (mounted) setState(() {});
   }
 
-  void _onVertexDragEnd(int index) {
+  void _onVertexDragEnd(int index) async {
+    // Flush the final finger position using exact screen->LatLng projection.
+    final endScreenPos = _vertexPositions[index];
+    if (endScreenPos != null) {
+      final endPoint = await widget.controller.screenToLatLng(endScreenPos);
+      if (endPoint != null) {
+        final selected = widget.controller.drawingState.selectedShape;
+        if (selected != null && index < selected.allPoints.length) {
+          final points = List.of(selected.allPoints);
+          points[index] = endPoint;
+          _updateShapePoints(selected, points, recordHistory: false);
+        }
+      }
+    }
+
+    final finalShape = widget.controller.drawingState.selectedShape;
+    if (_dragMoved && _dragStartShape != null && finalShape != null) {
+      // Commit one undoable command for the entire drag gesture.
+      widget.controller.drawingState.updateShape(_dragStartShape!, finalShape);
+    }
+    _dragStartShape = null;
+    _dragMoved = false;
+    _pendingDragSyncIndex = null;
+    _pendingDragSyncScreenPos = null;
     widget.controller.drawingState.endShapeDrag();
     // Single accurate reconciliation refresh now that the gesture is done.
     _refreshPositions();
+  }
+
+  // Keeps dragged geometry aligned with the handle without flooding
+  // platform channels on every move event.
+  void _queueDraggedVertexProjectionSync(int index, Offset screenPos) {
+    _pendingDragSyncIndex = index;
+    _pendingDragSyncScreenPos = screenPos;
+    if (_dragSyncInFlight) return;
+
+    _dragSyncInFlight = true;
+    Future<void>(() async {
+      while (mounted &&
+          _pendingDragSyncIndex != null &&
+          _pendingDragSyncScreenPos != null) {
+        final syncIndex = _pendingDragSyncIndex!;
+        final syncScreen = _pendingDragSyncScreenPos!;
+        _pendingDragSyncIndex = null;
+        _pendingDragSyncScreenPos = null;
+
+        final projectedPoint = await widget.controller.screenToLatLng(syncScreen);
+        if (!mounted) break;
+        if (projectedPoint != null) {
+          final selected = widget.controller.drawingState.selectedShape;
+          if (selected != null && syncIndex < selected.allPoints.length) {
+            final points = List.of(selected.allPoints);
+            points[syncIndex] = projectedPoint;
+            _updateShapePoints(selected, points, recordHistory: false);
+          }
+        }
+      }
+      _dragSyncInFlight = false;
+    });
   }
 
   void _onVertexLongPress(int index) {
@@ -331,7 +365,11 @@ class _GmVertexOverlayState extends State<GmVertexOverlay> {
     _updateShapePoints(selected, points);
   }
 
-  void _updateShapePoints(DrawableShape shape, List<LatLng> points) {
+  void _updateShapePoints(
+    DrawableShape shape,
+    List<LatLng> points, {
+    bool recordHistory = true,
+  }) {
     final DrawableShape updated;
     switch (shape) {
       case final DrawablePolygon s:
@@ -347,7 +385,11 @@ class _GmVertexOverlayState extends State<GmVertexOverlay> {
           return;
         }
     }
-    widget.controller.drawingState.updateShape(shape, updated);
+    if (recordHistory) {
+      widget.controller.drawingState.updateShape(shape, updated);
+    } else {
+      widget.controller.drawingState.updateShapeNoHistory(shape, updated);
+    }
   }
 
   @override
@@ -380,7 +422,7 @@ class _GmVertexOverlayState extends State<GmVertexOverlay> {
 
   Widget _buildVertexHandle(int index, Offset pos) {
     final size = widget.vertexHandleSize;
-    final touchSize = size < 48 ? 48.0 : size;
+    final touchSize = size < 60 ? 60.0 : size;
 
     return Positioned(
       left: pos.dx - touchSize / 2,
